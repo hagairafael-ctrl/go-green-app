@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Go Green</title>
+
+<!-- PWA: makes this installable to the home screen -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0E1320">
+<meta name="background-color" content="#0E1320">
+
+<!-- iOS doesn't fully read manifest.json, so it needs its own tags -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Go Green">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+<!-- Home screen / favicon -->
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0E1320;
+    --bg-elevated: #161D2E;
+    --bg-card: #131A2B;
+    --paper: #F2EFE9;
+    --paper-dim: #9BA3B5;
+    --paper-faint: #5C6478;
+    --up: #34C77B;
+    --up-dim: #1E3A2D;
+    --down: #D2614A;
+    --down-dim: #3A2420;
+    --line: #232B40;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--paper);
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  body {
+    padding: env(safe-area-inset-top, 20px) 18px calc(env(safe-area-inset-bottom, 20px) + 24px) 18px;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  .header {
+    padding: 28px 4px 22px 4px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+
+  .brand {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .brand-dot {
+    color: var(--up);
+  }
+
+  .header-time {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--paper-faint);
+  }
+
+  .cards {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 20px 20px 18px 20px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px;
+    height: 100%;
+    background: var(--status-color, var(--paper-faint));
+    opacity: 0.7;
+  }
+
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 18px;
+  }
+
+  .market-id {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .market-name {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .market-sub {
+    font-size: 12px;
+    color: var(--paper-faint);
+    font-weight: 500;
+  }
+
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 5px 9px 5px 7px;
+    border-radius: 100px;
+    background: var(--bg-elevated);
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--paper-faint);
+    flex-shrink: 0;
+  }
+
+  .card[data-open="true"] .status-dot {
+    background: var(--up);
+    box-shadow: 0 0 0 0 rgba(52, 199, 123, 0.6);
+    animation: pulse 2s infinite;
+  }
+
+  .card[data-open="true"] .status {
+    color: var(--up);
+  }
+
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(52, 199, 123, 0.45); }
+    70%  { box-shadow: 0 0 0 6px rgba(52, 199, 123, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(52, 199, 123, 0); }
+  }
+
+  .price-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+
+  .price {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .change-pill {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 8px;
+  }
+
+  .change-pill.up { color: var(--up); background: var(--up-dim); }
+  .change-pill.down { color: var(--down); background: var(--down-dim); }
+
+  .sparkline {
+    width: 100%;
+    height: 36px;
+    display: block;
+  }
+
+  .card-foot {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--paper-faint);
+  }
+
+  .footer-note {
+    margin-top: 28px;
+    padding: 16px 16px;
+    border-radius: 14px;
+    background: var(--bg-elevated);
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--paper-dim);
+  }
+
+  .footer-note b {
+    color: var(--paper);
+  }
+
+  .stage-tag {
+    display: inline-block;
+    margin-top: 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--paper-faint);
+    text-align: center;
+    width: 100%;
+  }
+
+  /* ---- Watchlist section ---- */
+
+  .section-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 36px 4px 14px 4px;
+  }
+
+  .section-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--paper-dim);
+    white-space: nowrap;
+  }
+
+  .section-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+  }
+
+  .caveat-banner {
+    background: var(--bg-elevated);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin: 0 4px 16px 4px;
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--paper-dim);
+  }
+
+  .caveat-banner b {
+    color: var(--paper);
+  }
+
+  .watch-card {
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 18px 18px 16px 18px;
+    margin-bottom: 12px;
+  }
+
+  .watch-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .watch-id {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .watch-ticker {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .watch-name {
+    font-size: 12px;
+    color: var(--paper-faint);
+  }
+
+  .lean-pill {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 100px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+
+  .lean-pill.bullish { color: var(--up); background: var(--up-dim); }
+  .lean-pill.bearish { color: var(--down); background: var(--down-dim); }
+  .lean-pill.mixed { color: var(--paper-dim); background: var(--bg-elevated); }
+  .lean-pill.loading { color: var(--paper-faint); background: var(--bg-elevated); }
+
+  .confidence-bar {
+    height: 4px;
+    background: var(--line);
+    border-radius: 2px;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+
+  .confidence-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.4s ease;
+  }
+
+  .headlines {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  .headline-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+
+  .headline-tag {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    margin-top: 1px;
+  }
+
+  .headline-tag.pos { background: var(--up-dim); color: var(--up); }
+  .headline-tag.neg { background: var(--down-dim); color: var(--down); }
+  .headline-tag.neu { background: var(--bg-elevated); color: var(--paper-faint); }
+
+  .headline-text {
+    color: var(--paper-dim);
+  }
+
+  .headline-text a {
+    color: var(--paper-dim);
+    text-decoration: none;
+  }
+
+  .headline-text a:hover {
+    color: var(--paper);
+    text-decoration: underline;
+  }
+
+  .watch-foot {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    color: var(--paper-faint);
+  }
+
+  .no-news {
+    font-size: 12.5px;
+    color: var(--paper-faint);
+    font-style: italic;
+  }
+
+  /* ---- Screener (news-sentiment cards grouped by sector) ---- */
+
+  .screener-sector {
+    margin-bottom: 22px;
+  }
+
+  .screener-sector-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--paper-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0 4px 8px 4px;
+  }
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="brand">Go Green<span class="brand-dot">●</span></div>
+    <div class="header-time" id="clock">--:--:--</div>
+  </div>
+
+  <div class="cards">
+
+    <!-- S&P 500 (NYSE proxy) -->
+    <div class="card" id="card-sp500" data-open="false" style="--status-color:#5C6478;">
+      <div class="card-top">
+        <div class="market-id">
+          <div class="market-name">S&amp;P 500</div>
+          <div class="market-sub">NYSE-listed benchmark</div>
+        </div>
+        <div class="status"><span class="status-dot"></span>Closed</div>
+      </div>
+      <div class="price-row">
+        <div class="price">—</div>
+        <div class="change-pill">Loading…</div>
+      </div>
+      <svg class="sparkline" viewBox="0 0 300 36" preserveAspectRatio="none">
+        <polyline points="" fill="none" stroke="#5C6478" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="card-foot">
+        <span class="local-time">New York --:-- ET</span>
+        <span class="data-source">Connecting…</span>
+      </div>
+    </div>
+
+    <!-- NASDAQ -->
+    <div class="card" id="card-nasdaq" data-open="false" style="--status-color:#5C6478;">
+      <div class="card-top">
+        <div class="market-id">
+          <div class="market-name">NASDAQ</div>
+          <div class="market-sub">Composite Index</div>
+        </div>
+        <div class="status"><span class="status-dot"></span>Closed</div>
+      </div>
+      <div class="price-row">
+        <div class="price">—</div>
+        <div class="change-pill">Loading…</div>
+      </div>
+      <svg class="sparkline" viewBox="0 0 300 36" preserveAspectRatio="none">
+        <polyline points="" fill="none" stroke="#5C6478" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="card-foot">
+        <span class="local-time">New York --:-- ET</span>
+        <span class="data-source">Connecting…</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer-note" id="footerNote">
+    <b>Loading live data…</b> Fetching the latest prices for S&amp;P 500 and NASDAQ.
+  </div>
+
+  <div class="section-divider"><span class="section-title">Holdings</span></div>
+
+  <div class="caveat-banner">
+    <b>Experimental — not a price forecast.</b> Each "lean" below is a simple keyword-based sentiment score of recent headlines, not a prediction validated against actual outcomes. News sentiment often does <i>not</i> match how a stock actually moves. Use this to skim headlines faster, not to trade on.
+  </div>
+
+  <div id="holdings-container">
+    <!-- Holding cards are rendered here by JS -->
+  </div>
+
+  <div class="section-divider"><span class="section-title">Watchlist</span></div>
+
+  <div id="watchlist-container">
+    <!-- Watchlist cards (companies you're tracking but don't hold) render here -->
+  </div>
+
+  <div class="section-divider"><span class="section-title">Screener</span></div>
+
+  <div class="caveat-banner">
+    <b>Experimental — not a price forecast.</b> Same approach as Holdings: each company's "lean" is a keyword-based sentiment score of recent headlines, grouped by sector so you can scan across candidates. Not validated against actual outcomes — read the headlines yourself before drawing any conclusion.
+  </div>
+
+  <div id="screener-container">
+    <!-- Sector groups of watch-cards render here by JS -->
+  </div>
+
+  <div class="stage-tag">STAGE 4 — SECTOR SCREENER (NEWS SENTIMENT)</div>
+
+  <script>
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('clock').textContent = now.toLocaleTimeString('en-GB');
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // ---- Market configuration ----
+    // Each market: Yahoo ticker, display name, the timezone to show local time in,
+    // and (roughly) which UTC hours the exchange is open Mon-Fri.
+    const MARKETS = [
+      {
+        id: 'sp500',
+        ticker: '%5EGSPC',
+        name: 'S&P 500',
+        sub: 'NYSE-listed benchmark',
+        tz: 'America/New_York',
+        tzLabel: 'ET',
+        openUTC: 13.5,  // 09:30 ET ≈ 13:30 UTC (varies with DST)
+        closeUTC: 20.0  // 16:00 ET ≈ 20:00 UTC
+      },
+      {
+        id: 'nasdaq',
+        ticker: '%5EIXIC',
+        name: 'NASDAQ',
+        sub: 'Composite Index',
+        tz: 'America/New_York',
+        tzLabel: 'ET',
+        openUTC: 13.5,
+        closeUTC: 20.0
+      }
+    ];
+
+    function isMarketOpen(market) {
+      const now = new Date();
+      const day = now.getUTCDay(); // 0 = Sunday, 6 = Saturday
+      if (day === 0 || day === 6) return false;
+      const utcHour = now.getUTCHours() + now.getUTCMinutes() / 60;
+      return utcHour >= market.openUTC && utcHour < market.closeUTC;
+    }
+
+    function formatLocalTime(tz) {
+      try {
+        return new Date().toLocaleTimeString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit' });
+      } catch (e) {
+        return '--:--';
+      }
+    }
+
+    function formatPrice(n) {
+      return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // Build a smooth sparkline path from an array of closing prices
+    function buildSparkline(closes) {
+      const clean = closes.filter(v => v !== null && v !== undefined);
+      if (clean.length < 2) return '';
+      const min = Math.min(...clean);
+      const max = Math.max(...clean);
+      const range = (max - min) || 1;
+      const w = 300, h = 36, pad = 3;
+      const step = (w) / (clean.length - 1);
+      return clean.map((v, i) => {
+        const x = i * step;
+        const y = pad + (1 - (v - min) / range) * (h - pad * 2);
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(' ');
+    }
+
+    async function fetchMarket(market) {
+      // Yahoo's chart endpoint blocks direct browser calls (CORS), so we
+      // route through a free public proxy (allorigins) that fetches it for us.
+      const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${market.ticker}?interval=1d&range=1mo`;
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`;
+
+      const res = await fetch(proxyUrl);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      const result = data?.chart?.result?.[0];
+      if (!result) throw new Error('No data in response');
+
+      const meta = result.meta;
+      const closes = result.indicators?.quote?.[0]?.close || [];
+      const currentPrice = meta.regularMarketPrice;
+      const prevClose = meta.previousClose ?? meta.chartPreviousClose;
+      const changePct = ((currentPrice - prevClose) / prevClose) * 100;
+
+      return {
+        price: currentPrice,
+        changePct: changePct,
+        sparklinePoints: buildSparkline(closes)
+      };
+    }
+
+    function renderMarket(market, data, error) {
+      const card = document.getElementById(`card-${market.id}`);
+      if (!card) return;
+
+      const open = isMarketOpen(market);
+      card.dataset.open = open ? 'true' : 'false';
+      card.style.setProperty('--status-color', open ? '#34C77B' : '#5C6478');
+      card.querySelector('.status').innerHTML =
+        `<span class="status-dot"></span>${open ? 'Open' : 'Closed'}`;
+
+      const localTimeEl = card.querySelector('.local-time');
+      if (localTimeEl) {
+        localTimeEl.textContent = `${market.tzLabel === 'WIB' ? 'Jakarta' : 'New York'} ${formatLocalTime(market.tz)} ${market.tzLabel}`;
+      }
+
+      const priceEl = card.querySelector('.price');
+      const pillEl = card.querySelector('.change-pill');
+      const sparkEl = card.querySelector('.sparkline polyline');
+      const sourceEl = card.querySelector('.data-source');
+
+      if (error) {
+        priceEl.textContent = '—';
+        pillEl.textContent = 'No data';
+        pillEl.className = 'change-pill';
+        sourceEl.textContent = 'Fetch failed';
+        return;
+      }
+
+      priceEl.textContent = formatPrice(data.price);
+      const isUp = data.changePct >= 0;
+      pillEl.textContent = `${isUp ? '+' : ''}${data.changePct.toFixed(2)}%`;
+      pillEl.className = `change-pill ${isUp ? 'up' : 'down'}`;
+      sparkEl.setAttribute('points', data.sparklinePoints);
+      sparkEl.setAttribute('stroke', isUp ? '#34C77B' : '#D2614A');
+      sourceEl.textContent = 'Live · Yahoo Finance';
+    }
+
+    async function refreshAll() {
+      const results = await Promise.allSettled(MARKETS.map(fetchMarket));
+      results.forEach((r, i) => {
+        const market = MARKETS[i];
+        if (r.status === 'fulfilled') {
+          renderMarket(market, r.value, null);
+        } else {
+          renderMarket(market, null, r.reason);
+          console.error(`Failed to fetch ${market.name}:`, r.reason);
+        }
+      });
+
+      const anySuccess = results.some(r => r.status === 'fulfilled');
+      const note = document.getElementById('footerNote');
+      if (anySuccess) {
+        note.innerHTML = `<b>Stage 2 — Live data.</b> Prices update automatically every 60 seconds, pulled from Yahoo Finance via a public proxy. Open/closed status is approximate (doesn't account for holidays).`;
+      } else {
+        note.innerHTML = `<b>Couldn't load live data.</b> The data source might be temporarily unavailable, or your connection blocked the request. Pull down to refresh, or try again shortly.`;
+      }
+    }
+
+    refreshAll();
+    setInterval(refreshAll, 60000); // refresh every 60 seconds
+
+    // ================= HOLDINGS + WATCHLIST + NEWS SENTIMENT =================
+
+    // Replace with your own key from finnhub.io/register — this one is just a placeholder.
+    const FINNHUB_API_KEY = 'd8qebv9r01qr03ni3tagd8qebv9r01qr03ni3tb0';
+
+    // Companies you currently hold.
+    const HOLDINGS = [
+      { ticker: 'SNDK', name: 'SanDisk' },
+      { ticker: 'RKLB', name: 'Rocket Lab' },
+      { ticker: 'NBIS', name: 'Nebius Group' },
+      { ticker: 'LITE', name: 'Lumentum' },
+      { ticker: 'GLW',  name: 'Corning' },
+      { ticker: 'VRT',  name: 'Vertiv' }
+    ];
+
+    // Companies you're tracking but don't currently hold. Add tickers here.
+    const WATCHLIST = [
+      // { ticker: 'AAPL', name: 'Apple' },
+    ];
+
+    // A small, transparent keyword lexicon. This is intentionally simple —
+    // it's a readable starting point, not a trained sentiment model.
+    const POSITIVE_WORDS = [
+      'beat', 'beats', 'surge', 'surges', 'soar', 'soars', 'jump', 'jumps',
+      'gain', 'gains', 'rally', 'rallies', 'upgrade', 'upgraded', 'outperform',
+      'record', 'strong', 'growth', 'profit', 'profits', 'exceeds', 'exceeded',
+      'raises', 'raised', 'bullish', 'win', 'wins', 'expansion', 'partnership',
+      'breakthrough', 'approval', 'approved', 'buyback', 'optimistic'
+    ];
+
+    const NEGATIVE_WORDS = [
+      'miss', 'misses', 'plunge', 'plunges', 'fall', 'falls', 'falling',
+      'drop', 'drops', 'slump', 'slumps', 'downgrade', 'downgraded',
+      'underperform', 'weak', 'loss', 'losses', 'lawsuit', 'investigation',
+      'recall', 'cuts', 'cut', 'layoffs', 'bearish', 'decline', 'declines',
+      'warns', 'warning', 'delay', 'delayed', 'shortfall', 'concerns',
+      'probe', 'fraud', 'fine', 'penalty'
+    ];
+
+    function scoreHeadline(text) {
+      const lower = text.toLowerCase();
+      let pos = 0, neg = 0;
+      POSITIVE_WORDS.forEach(w => { if (lower.includes(w)) pos++; });
+      NEGATIVE_WORDS.forEach(w => { if (lower.includes(w)) neg++; });
+      if (pos > neg) return 'pos';
+      if (neg > pos) return 'neg';
+      return 'neu';
+    }
+
+    function computeLean(scoredHeadlines) {
+      if (scoredHeadlines.length === 0) {
+        return { lean: 'mixed', label: 'No data', confidence: 0 };
+      }
+      const posCount = scoredHeadlines.filter(h => h.sentiment === 'pos').length;
+      const negCount = scoredHeadlines.filter(h => h.sentiment === 'neg').length;
+      const total = scoredHeadlines.length;
+      const net = posCount - negCount;
+      const confidence = Math.min(Math.abs(net) / total, 1);
+
+      let lean, label;
+      if (net > 0 && confidence > 0.15) {
+        lean = 'bullish'; label = 'Bullish lean';
+      } else if (net < 0 && confidence > 0.15) {
+        lean = 'bearish'; label = 'Bearish lean';
+      } else {
+        lean = 'mixed'; label = 'Mixed / neutral';
+      }
+      return { lean, label, confidence };
+    }
+
+    // cardId lets Holdings and Watchlist use the same ticker without DOM id clashes
+    function cardId(prefix, ticker) {
+      return `${prefix}-${ticker}`;
+    }
+
+    function renderSkeleton(containerId, prefix, companies) {
+      const container = document.getElementById(containerId);
+      if (companies.length === 0) {
+        container.innerHTML = `<span class="no-news">Nothing here yet. Add tickers to this list in the code to start tracking them.</span>`;
+        return;
+      }
+      container.innerHTML = companies.map(co => `
+        <div class="watch-card" id="${cardId(prefix, co.ticker)}">
+          <div class="watch-top">
+            <div class="watch-id">
+              <span class="watch-ticker">${co.ticker}</span>
+              <span class="watch-name">${co.name}</span>
+            </div>
+            <span class="lean-pill loading">Loading…</span>
+          </div>
+          <div class="confidence-bar"><div class="confidence-fill" style="width:0%"></div></div>
+          <div class="headlines"><span class="no-news">Fetching recent headlines…</span></div>
+          <div class="watch-foot">—</div>
+        </div>
+      `).join('');
+    }
+
+    function dateDaysAgo(days) {
+      const d = new Date();
+      d.setDate(d.getDate() - days);
+      return d.toISOString().split('T')[0];
+    }
+
+    async function fetchJsonDirectOrProxied(url) {
+      // Try a direct browser call first (faster, doesn't use the shared proxy's quota).
+      // If the API blocks cross-origin browser requests, fall back to the same
+      // AllOrigins proxy we use for Yahoo Finance.
+      try {
+        const res = await fetch(url);
+        if (res.ok) return await res.json();
+      } catch (e) {
+        // Likely a CORS failure — fall through to the proxy below.
+      }
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+      const res = await fetch(proxyUrl);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    }
+
+    async function fetchCompanyNews(ticker) {
+      const from = dateDaysAgo(7);
+      const to = dateDaysAgo(0);
+      const url = `https://finnhub.io/api/v1/company-news?symbol=${ticker}&from=${from}&to=${to}&token=${FINNHUB_API_KEY}`;
+      const articles = await fetchJsonDirectOrProxied(url);
+      if (!Array.isArray(articles)) throw new Error('Unexpected response shape');
+      // Most recent first, cap at 6 headlines to keep cards readable
+      return articles
+        .sort((a, b) => b.datetime - a.datetime)
+        .slice(0, 6);
+    }
+
+    // Renders a card's content. Returns true if the card has real headlines
+    // to show, false if it should be removed (no data / fetch failed).
+    function renderWatchCard(prefix, ticker, articles, error) {
+      const card = document.getElementById(cardId(prefix, ticker));
+      if (!card) return false;
+
+      if (error) {
+        card.remove();
+        return false;
+      }
+
+      const scored = articles.map(a => ({
+        ...a,
+        sentiment: scoreHeadline(`${a.headline} ${a.summary || ''}`)
+      }));
+
+      if (scored.length === 0) {
+        card.remove();
+        return false;
+      }
+
+      const pillEl = card.querySelector('.lean-pill');
+      const fillEl = card.querySelector('.confidence-fill');
+      const headlinesEl = card.querySelector('.headlines');
+      const footEl = card.querySelector('.watch-foot');
+
+      const { lean, label, confidence } = computeLean(scored);
+      pillEl.textContent = label;
+      pillEl.className = `lean-pill ${lean}`;
+
+      const fillColor = lean === 'bullish' ? '#34C77B' : lean === 'bearish' ? '#D2614A' : '#5C6478';
+      fillEl.style.width = `${Math.round(confidence * 100)}%`;
+      fillEl.style.background = fillColor;
+
+      const tagSymbol = { pos: '+', neg: '−', neu: '·' };
+      headlinesEl.innerHTML = scored.map(a => `
+        <div class="headline-row">
+          <span class="headline-tag ${a.sentiment}">${tagSymbol[a.sentiment]}</span>
+          <span class="headline-text"><a href="${a.url}" target="_blank" rel="noopener">${a.headline}</a></span>
+        </div>
+      `).join('');
+
+      footEl.textContent = `${scored.length} headlines · last 7 days · Source: Finnhub`;
+      return true;
+    }
+
+    async function refreshList(containerId, prefix, companies) {
+      if (companies.length === 0) return;
+      renderSkeleton(containerId, prefix, companies);
+      const results = await Promise.allSettled(companies.map(co => fetchCompanyNews(co.ticker)));
+
+      let anyVisible = false;
+      results.forEach((r, i) => {
+        const ticker = companies[i].ticker;
+        if (r.status === 'fulfilled') {
+          const visible = renderWatchCard(prefix, ticker, r.value, null);
+          anyVisible = anyVisible || visible;
+        } else {
+          renderWatchCard(prefix, ticker, null, r.reason);
+          console.error(`Failed to fetch news for ${ticker}:`, r.reason);
+        }
+      });
+
+      // If every card in this list had no data, show a single explanatory line
+      // instead of leaving the section looking broken or empty with no context.
+      if (!anyVisible) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = `<span class="no-news">No recent headlines found for any company in this list (last 7 days).</span>`;
+      }
+    }
+
+    async function refreshHoldingsAndWatchlist() {
+      await Promise.all([
+        refreshList('holdings-container', 'hold', HOLDINGS),
+        refreshList('watchlist-container', 'watch', WATCHLIST)
+      ]);
+    }
+
+    refreshHoldingsAndWatchlist();
+    setInterval(refreshHoldingsAndWatchlist, 5 * 60000); // refresh every 5 minutes (be kind to free tier)
+
+    // ================= SCREENER =================
+    // Shows the same news-sentiment "lean" card format as Holdings/Watchlist,
+    // just grouped by sector. No price/momentum data — pulling reliable price
+    // history for ~20 tickers on top of news was slow and added a second
+    // point of failure, so this section is news-only by design.
+
+    const SCREENER_SECTORS = [
+      {
+        name: 'Semiconductors',
+        companies: [
+          { ticker: 'NVDA', name: 'Nvidia' },
+          { ticker: 'AMD',  name: 'AMD' },
+          { ticker: 'AVGO', name: 'Broadcom' },
+          { ticker: 'TSM',  name: 'TSMC' },
+          { ticker: 'ASML', name: 'ASML' },
+          { ticker: 'QCOM', name: 'Qualcomm' },
+          { ticker: 'MU',   name: 'Micron' },
+          { ticker: 'LRCX', name: 'Lam Research' }
+        ]
+      },
+      {
+        name: 'Pharma & Biotech',
+        companies: [
+          { ticker: 'LLY',  name: 'Eli Lilly' },
+          { ticker: 'JNJ',  name: 'Johnson & Johnson' },
+          { ticker: 'ABBV', name: 'AbbVie' },
+          { ticker: 'MRK',  name: 'Merck' },
+          { ticker: 'VRTX', name: 'Vertex Pharma' },
+          { ticker: 'REGN', name: 'Regeneron' },
+          { ticker: 'BNTX', name: 'BioNTech' }
+        ]
+      },
+      {
+        name: 'Cloud Infrastructure',
+        companies: [
+          { ticker: 'MSFT', name: 'Microsoft' },
+          { ticker: 'AMZN', name: 'Amazon' },
+          { ticker: 'GOOGL',name: 'Alphabet' },
+          { ticker: 'CRM',  name: 'Salesforce' },
+          { ticker: 'SNOW', name: 'Snowflake' },
+          { ticker: 'DOCN', name: 'DigitalOcean' }
+        ]
+      }
+    ];
+
+    function renderSectorSkeleton(sector) {
+      const cardsHtml = sector.companies.map(co => `
+        <div class="watch-card" id="${cardId('screen', co.ticker)}">
+          <div class="watch-top">
+            <div class="watch-id">
+              <span class="watch-ticker">${co.ticker}</span>
+              <span class="watch-name">${co.name}</span>
+            </div>
+            <span class="lean-pill loading">Loading…</span>
+          </div>
+          <div class="confidence-bar"><div class="confidence-fill" style="width:0%"></div></div>
+          <div class="headlines"><span class="no-news">Fetching recent headlines…</span></div>
+          <div class="watch-foot">—</div>
+        </div>
+      `).join('');
+
+      return `
+        <div class="screener-sector" id="screener-sector-${sector.name.replace(/\s+/g, '-')}">
+          <div class="screener-sector-title">${sector.name}</div>
+          ${cardsHtml}
+        </div>`;
+    }
+
+    async function loadSector(sector) {
+      const results = await Promise.allSettled(sector.companies.map(co => fetchCompanyNews(co.ticker)));
+      let anyVisible = false;
+      results.forEach((r, i) => {
+        const ticker = sector.companies[i].ticker;
+        if (r.status === 'fulfilled') {
+          const visible = renderWatchCard('screen', ticker, r.value, null);
+          anyVisible = anyVisible || visible;
+        } else {
+          renderWatchCard('screen', ticker, null, r.reason);
+          console.error(`Screener failed for ${ticker}:`, r.reason);
+        }
+      });
+
+      if (!anyVisible) {
+        const el = document.getElementById(`screener-sector-${sector.name.replace(/\s+/g, '-')}`);
+        if (el) {
+          el.innerHTML = `<div class="screener-sector-title">${sector.name}</div><span class="no-news">No recent headlines found for any company in this sector (last 7 days).</span>`;
+        }
+      }
+    }
+
+    async function refreshScreener() {
+      const container = document.getElementById('screener-container');
+      container.innerHTML = SCREENER_SECTORS.map(renderSectorSkeleton).join('');
+      // Load sectors one at a time to stay well within Finnhub's free-tier rate limit.
+      for (const sector of SCREENER_SECTORS) {
+        await loadSector(sector);
+      }
+    }
+
+    refreshScreener();
+    setInterval(refreshScreener, 10 * 60000); // refresh every 10 minutes — still the heaviest section on API calls
+  </script>
+
+</body>
+</html>
